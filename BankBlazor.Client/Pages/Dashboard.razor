@@ -1,0 +1,216 @@
+@page "/dashboard"
+@using BankBlazor.Client.Models
+@using BankBlazor.Client.Services
+@inject CustomerService CustomerService
+@inject AccountService AccountService
+
+<h3>Customer Dashboard</h3>
+
+<!-- Customer Search/Select -->
+<div>
+    <label>Customer ID:</label>
+    <input type="number" @bind="customerId" min="1" />
+    <button @onclick="LoadCustomer">Load</button>
+</div>
+
+@if (customer != null)
+{
+    <div class="card mt-3">
+        <div class="card-body">
+            <h5 class="card-title">@customer.Givenname @customer.Surname</h5>
+            <p class="card-text">ID: @customer.CustomerId<br />
+                Address: @customer.Streetaddress, @customer.City<br />
+                Email: @customer.Emailaddress
+            </p>
+        </div>
+    </div>
+    <h4 class="mt-4">Accounts</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Account ID</th>
+                <th>Balance</th>
+                <th>Frequency</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var acc in accounts)
+            {
+                <tr>
+                    <td>@acc.AccountId</td>
+                    <td>@acc.Balance</td>
+                    <td>@acc.Frequency</td>
+                    <td>@acc.Created.ToShortDateString()</td>
+                    <td>
+                        <button class="btn btn-sm btn-success" @onclick="() => ShowDeposit(acc.AccountId)">Deposit</button>
+                        <button class="btn btn-sm btn-warning" @onclick="() => ShowWithdraw(acc.AccountId)">Withdraw</button>
+                        <button class="btn btn-sm btn-info" @onclick="() => ShowTransfer(acc.AccountId)">Transfer</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (showDepositForm)
+{
+    <div class="card mt-3">
+        <div class="card-body">
+            <h5>Deposit to Account @selectedAccountId</h5>
+            <input type="number" @bind="depositAmount" min="1" class="form-control mb-2" placeholder="Amount" />
+            <button class="btn btn-success me-2" @onclick="SubmitDeposit">Deposit</button>
+            <button class="btn btn-secondary" @onclick="CloseForms">Cancel</button>
+            @if (!string.IsNullOrEmpty(actionMessage))
+            {
+                <div class="mt-2">@actionMessage</div>
+            }
+        </div>
+    </div>
+}
+@if (showWithdrawForm)
+{
+    <div class="card mt-3">
+        <div class="card-body">
+            <h5>Withdraw from Account @selectedAccountId</h5>
+            <input type="number" @bind="withdrawAmount" min="1" class="form-control mb-2" placeholder="Amount" />
+            <button class="btn btn-warning me-2" @onclick="SubmitWithdraw">Withdraw</button>
+            <button class="btn btn-secondary" @onclick="CloseForms">Cancel</button>
+            @if (!string.IsNullOrEmpty(actionMessage))
+            {
+                <div class="mt-2">@actionMessage</div>
+            }
+        </div>
+    </div>
+}
+@if (showTransferForm)
+{
+    <div class="card mt-3">
+        <div class="card-body">
+            <h5>Transfer from Account @selectedAccountId</h5>
+            <input type="number" @bind="transferToAccountId" min="1" class="form-control mb-2" placeholder="To Account ID" />
+            <input type="number" @bind="transferAmount" min="1" class="form-control mb-2" placeholder="Amount" />
+            <button class="btn btn-info me-2" @onclick="SubmitTransfer">Transfer</button>
+            <button class="btn btn-secondary" @onclick="CloseForms">Cancel</button>
+            @if (!string.IsNullOrEmpty(actionMessage))
+            {
+                <div class="mt-2">@actionMessage</div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private int customerId;
+    private CustomerDto? customer;
+    private List<AccountDto> accounts = new();
+    private bool showDepositForm, showWithdrawForm, showTransferForm;
+    private int selectedAccountId;
+    private decimal depositAmount, withdrawAmount, transferAmount;
+    private int transferToAccountId;
+    private string? actionMessage;
+
+    private async Task LoadCustomer()
+    {
+        customer = await CustomerService.GetCustomerByIdAsync(customerId);
+        if (customer != null)
+        {
+            accounts = await AccountService.GetAccountsByCustomerIdAsync(customerId);
+        }
+        else
+        {
+            actionMessage = "Customer not found.";
+            accounts = new();
+        }
+    }
+
+    private void ShowDeposit(int accountId)
+    {
+        CloseForms();
+        showDepositForm = true;
+        selectedAccountId = accountId;
+        depositAmount = 0;
+        actionMessage = null;
+    }
+    private void ShowWithdraw(int accountId)
+    {
+        CloseForms();
+        showWithdrawForm = true;
+        selectedAccountId = accountId;
+        withdrawAmount = 0;
+        actionMessage = null;
+    }
+    private void ShowTransfer(int accountId)
+    {
+        CloseForms();
+        showTransferForm = true;
+        selectedAccountId = accountId;
+        transferToAccountId = 0;
+        transferAmount = 0;
+        actionMessage = null;
+    }
+    private void CloseForms()
+    {
+        showDepositForm = showWithdrawForm = showTransferForm = false;
+        actionMessage = null;
+    }
+    private async Task SubmitDeposit()
+    {
+        actionMessage = null;
+        var req = new DepositRequest { AccountId = selectedAccountId, Amount = depositAmount };
+        try
+        {
+            var result = await AccountService.DepositAsync(req);
+            if (result != null)
+            {
+                actionMessage = "Deposit successful.";
+                await LoadCustomer();
+            }
+        }
+        catch (Exception ex)
+        {
+            actionMessage = $"Error: {ex.Message}";
+        }
+    }
+    private async Task SubmitWithdraw()
+    {
+        actionMessage = null;
+        var req = new WithdrawRequest { AccountId = selectedAccountId, Amount = withdrawAmount };
+        try
+        {
+            var result = await AccountService.WithdrawAsync(req);
+            if (result != null)
+            {
+                actionMessage = "Withdraw successful.";
+                await LoadCustomer();
+            }
+        }
+        catch (Exception ex)
+        {
+            actionMessage = $"Error: {ex.Message}";
+        }
+    }
+    private async Task SubmitTransfer()
+    {
+        actionMessage = null;
+        var req = new TransferRequest { FromAccountId = selectedAccountId, ToAccountId = transferToAccountId, Amount = transferAmount };
+        try
+        {
+            var success = await AccountService.TransferAsync(req);
+            if (success)
+            {
+                actionMessage = "Transfer successful.";
+                await LoadCustomer();
+            }
+            else
+            {
+                actionMessage = "Transfer failed.";
+            }
+        }
+        catch (Exception ex)
+        {
+            actionMessage = $"Error: {ex.Message}";
+        }
+    }
+} 

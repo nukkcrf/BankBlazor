@@ -1,0 +1,52 @@
+@page "/transactions"
+@using BankBlazor.Client.Models
+@using BankBlazor.Client.Services
+
+@inject TransactionService TransactionService
+
+<h3>Transactions</h3>
+
+<div>
+    <label>Account ID:</label>
+    <input type="number" @bind="accountId" min="1" />
+    <button @onclick="LoadTransactions">Load</button>
+</div>
+
+@if (transactions != null && transactions.Count > 0)
+{
+    <table class="table table-striped mt-3">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var tx in transactions)
+            {
+                <tr>
+                    <td>@tx.Date.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>@tx.Type</td>
+                    <td>@tx.Amount</td>
+                    <td>@tx.Balance</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else if (transactions != null)
+{
+    <p>No transactions found for this account.</p>
+}
+
+@code {
+    private int accountId;
+    private List<TransactionDto>? transactions;
+
+    private async Task LoadTransactions()
+    {
+        transactions = await TransactionService.GetTransactionsByAccountIdAsync(accountId);
+    }
+} 
